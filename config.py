@@ -1,0 +1,2 @@
+aiModels = {}
+modelSelected = 'mistral-medium'

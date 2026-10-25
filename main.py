@@ -130,15 +130,17 @@ class MainWindow(QMainWindow):
                 API-Key fehlt. Bitte in den Einstellungen eingeben. Diese App verwendet die API von mistral.ai, 
                 um Siedlungen für das Rollenspiel Das Schwarze Auge zu generieren.
                 
-                Um Siedlungen zu speichern emphielt es sich in den Eintellungen einen Standardpfad für Siedlungen zu hinterlegen.
+                Um Siedlungen zu speichern empfiehlt es sich in den Eintellungen einen Standardpfad für Siedlungen zu hinterlegen.
                 """)
+
+        config.modelSelected = self.settings.value('model/selected', config.modelSelected)
     
     def save_settings(self):
-        # Verschiedene Datentypen speichern
         self.settings.setValue('window/geometry', self.saveGeometry())
         self.settings.setValue('window/state', self.saveState())
         self.settings.setValue('window/position', self.pos())
         self.settings.setValue('window/size', self.size())
+        self.settings.setValue('model/selected', config.modelSelected)
 
     @asyncSlot()
     async def on_generate_clicked(self):
@@ -146,6 +148,7 @@ class MainWindow(QMainWindow):
 
     async def generate_settlement(self):
         self.settlement.clear()
+        self.btn_save_settlement.setEnabled(False)
         extra = f" Besonderheit der Siedlung: {self.tb_query.toPlainText()}." if self.tb_query.toPlainText() else ""
         messages = [
             {"role": "system", "content": """
@@ -173,17 +176,26 @@ class MainWindow(QMainWindow):
              },
             {"role": "user", "content": f"Größe der Siedlung bis {self.cb_size.currentText().replace('-', '')} Einwohner, in der Region {self.cb_region.currentText()}.{extra}"}
         ]
-        
-        response = await self.client.chat.stream_async(
-            model=config.modelSelected,
-            messages=messages,
-            temperature=0.5
-        )
 
-        assert response
-        async for chunk in response:
-            if chunk.data.choices[0].delta.content is not None:
-                self.settlement.setText(self.settlement.toPlainText() + chunk.data.choices[0].delta.content)
+        try:
+            response = await self.client.chat.stream_async(
+                model=config.modelSelected,
+                messages=messages,
+                temperature=0.5
+            )
+
+            assert response
+            async for chunk in response:
+                if chunk.data.choices[0].delta.content is not None:
+                    self.settlement.setText(self.settlement.toPlainText() + chunk.data.choices[0].delta.content)
+
+        except models.MistralError as e:
+            QMessageBox.warning(
+                self,
+                "Fehler",
+                f"Die Siedlung konnte nicht generiert werden.\n\nMistral API-Fehler: {e}"
+            )
+            return
         
         if len(self.settlement.toPlainText()) > 0:
             self.btn_save_settlement.setEnabled(True)

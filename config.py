@@ -1,2 +1,2 @@
 aiModels = {}
-modelSelected = 'mistral-medium'
+modelSelected = 'ministral-8b-2512' #'mistral-medium-latest'
